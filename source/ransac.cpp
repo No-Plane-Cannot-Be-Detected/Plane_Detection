@@ -14,18 +14,18 @@ int get_plane(cv::Vec4f &best_model, bool *inliers, const cv::Mat &pts, float th
 bool check_same_plane(cv::Vec4f &p1, cv::Vec4f &p2, double thr);
 
 inline bool check_same_normal(cv::Vec4f &actual_plane, cv::Vec3f &expect_normal, double thr);
-
+ 
 /**
- * 获取多个平面
+ * Get multiple planes
  *
- * @param labels  点属于某个平面的标签, n × 1 矩阵, n 等于输入点云的大小 (输出)
- * @param planes  保存平面方程的vector, 方程表示为 ax + by + cz + d = 0 (输出)
- * @param points3d  输入的点云数据
- * @param thr  阈值
- * @param max_iterations 最大迭代次数
- * @param desired_num_planes  目标平面的数量
- * @param grid_size  降采样方格大小, 如果 小于等于 0，代表不进行降采样
- * @param normal 法向量约束，为 nullptr 代表不使用约束， 否则检测的平面法向量满足该约束
+ * @param labels  The label that the point belongs to a certain plane, n × 1 matrix, n is equal to the size of the input point cloud (output)
+ * @param planes  Holds the vector of plane equations, the equation is expressed as ax + by + cz + d = 0 (output)
+ * @param points3d  Input point cloud data
+ * @param thr  Threshold
+ * @param max_iterations  Maximum number of iterations
+ * @param desired_num_planes  Number of target planes
+ * @param grid_size  Downsampling grid size, if less than or equal to 0, it means no downsampling
+ * @param normal  Normal vector constraint, nullptr means no constraint is used, otherwise the detected plane normal vector satisfies the constraint
  */
 void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray &points3d,
                 float thr, int max_iterations, int desired_num_planes, float grid_size, cv::Vec3f *normal
@@ -42,19 +42,19 @@ void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray 
         points3d_ = cv::Mat((int) points3d_.total(), 3, CV_32F, points3d_.data);
     } else {
         if (points3d_.channels() != 1)
-            points3d_ = points3d_.reshape(1, (int) points3d_.total()); // 转换成单通道
+            points3d_ = points3d_.reshape(1, (int) points3d_.total()); // Convert to single channel
         if (points3d_.rows < points3d_.cols)
             transpose(points3d_, points3d_);
         CV_CheckEQ(points3d_.cols, 3, "Invalid dimension of point");
         if (points3d_.type() != CV_32F)
-            points3d_.convertTo(points3d_, CV_32F); // 使用 float 存储数据
+            points3d_.convertTo(points3d_, CV_32F); // Use float to store data
     }
 
 
-    std::vector<cv::Vec4f> planes_; // 初次找出的平面
+    std::vector<cv::Vec4f> planes_; // The plane found for the first time
 
     {
-        cv::Mat pts3d_plane_fit; // 每次用于找平面的点云
+        cv::Mat pts3d_plane_fit; // Point cloud used to find a plane every time
 
 
 
@@ -81,7 +81,7 @@ void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray 
         }
 
 
-        bool *inliers_ = new bool[pts3d_plane_fit.rows]; // 标记点是否为内点
+        bool *inliers_ = new bool[pts3d_plane_fit.rows]; // Whether the marked point is an interior point
 
 
 #ifdef INFO
@@ -121,7 +121,7 @@ void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray 
 
             for (int c = 0, p = 0; p < pts3d_size; ++p) {
                 if (!inliers_[p]) {
-                    // 如果不是已知平面的内点，加入下一轮迭代用于找新的平面
+                    // If it is not the inner point of the known plane, add the next iteration to find a new plane
                     int i = 3 * c, j = 3 * p;
                     fit_ptr[i] = tmp_ptr[j];
                     fit_ptr[i + 1] = tmp_ptr[j + 1];
@@ -143,19 +143,19 @@ void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray 
 #endif
 
 
-    //  根据得到的平面模型，在原点云数据上进行局部优化并打标记label
+    //  According to the obtained plane model, perform local optimization on the origin cloud data and label it
     int max_lo_inliers = 300, max_lo_iters = 3;
     int pts_size = points3d_.rows;
     labels = cv::Mat::zeros(pts_size, 1, CV_32S);
 
-    // 保持点的索引数组与原始点相对应
+    // Keep the index array of the point corresponding to the original point
     int *orig_pts_idx = new int[pts_size];
     for (int i = 0; i < pts_size; ++i) orig_pts_idx[i] = i;
 
     bool *inliers = new bool[pts_size];
     cv::Vec4f lo_model, best_model;
 
-    // 存储平面内点数量，下标从 1 开始 按照降序排列
+    // Store the number of points in the plane, the subscript starts from 1 in descending order
     vector<int> plane_inls_num = {0};
 
     int *labels_ptr = (int *) labels.data;
@@ -237,7 +237,7 @@ void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray 
         float *pts3d_ptr_ = (float *) points3d_.data;
         for (int c = 0, p = 0; p < pts3d_size; ++p) {
             if (!inliers[p]) {
-                // 如果点不在找到的平面内, 将其添加到下一次运行
+                // If the point is not in the found plane, add it to the next run
                 orig_pts_idx[c] = orig_pts_idx[p];
                 int i = 3 * c, j = 3 * p;
                 pts3d_ptr_[i] = tmp_ptr[j];
@@ -245,7 +245,7 @@ void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray 
                 pts3d_ptr_[i + 2] = tmp_ptr[j + 2];
                 ++c;
             } else {
-                labels_ptr[orig_pts_idx[p]] = plane_num; // 否则标记此点
+                labels_ptr[orig_pts_idx[p]] = plane_num; // Otherwise mark this point
             }
         }
     }
@@ -264,13 +264,13 @@ void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray 
 }
 
 /**
- * 体素滤波降采样
+ * Voxel filtering and sampling
  *
- * @param sampling_pts  采样后的点云 (输出)
- * @param pts 原始点云
- * @param length 方格长度
- * @param width  方格宽度
- * @param height  方格高度
+ * @param sampling_pts  Sampled point cloud (output)
+ * @param pts  Original point cloud
+ * @param length  Square length
+ * @param width  Square width
+ * @param height  Square height
  * @return
  */
 bool VoxelGrid(cv::Mat &sampling_pts, cv::Mat &pts, float length, float width, float height) {
@@ -377,21 +377,20 @@ bool VoxelGrid(cv::Mat &sampling_pts, cv::Mat &pts, float length, float width, f
     return true;
 }
 
-
 /**
- * 选取部分点 拟合一个平面
+ * Select some points to fit a plane
  *
- * @param model 拟合的平面模型结果 （输出）  ax + by + cz + d = 0
+ * @param model  Fitted plane model results (output) ax + by + cz + d = 0
  *
- * @param input 输入的点云
- * @param sample 用于拟合平面的点 在 input 中的数据下标，前 sample_num 个有效
- * @param sample_num 用于拟合平面的点的个数
- * @return 拟合结果是否有效
+ * @param input  Input point cloud
+ * @param sample  The point used to fit the plane is the data subscript in the input, the first sample_num is valid
+ * @param sample_num  The number of points used to fit the plane
+ * @return is the fitting result valid
  */
 bool total_least_squares_plane_estimate(cv::Vec4f &model, const cv::Mat &input, const int *sample, int sample_num) {
     const float *pts_ptr = (float *) input.data;
 
-    // 判断三点共线
+    // Judging the collinearity of three points
     if (3 == sample_num) {
         int id1 = 3 * sample[0], id2 = 3 * sample[1], id3 = 3 * sample[2];
         float x1 = pts_ptr[id1], y1 = pts_ptr[id1 + 1], z1 = pts_ptr[id1 + 2];
@@ -446,17 +445,16 @@ bool total_least_squares_plane_estimate(cv::Vec4f &model, const cv::Mat &input, 
     return true;
 }
 
-
 /**
- * 获取平面内点
+ * Get points in the plane
  *
- * @param inliers 标记是否为输入平面的内点 （输出）
+ * @param inliers  Mark whether it is the inner point of the input plane (output)
  *
- * @param model 平面模型
- * @param pts 点云
- * @param thr 阈值，点到平面的距离小于阈值则认为该点属于该平面
- * @param best_inls 最好的模型的内点数量，如果内点数量没有机会大于该值，则终止计算
- * @return 内点数量
+ * @param model  Plane model
+ * @param pts  Point cloud
+ * @param thr  Threshold, the point is considered to belong to the plane if the distance from the point to the plane is less than the threshold
+ * @param best_inls  The number of interior points of the best model. If there is no chance that the number of interior points is greater than this value, the calculation will be terminated
+ * @return number of points
  */
 int get_inliers(bool *inliers, const cv::Vec4f &model, const cv::Mat &pts, float thr, int best_inls) {
     const int pts_size = pts.rows;
@@ -467,7 +465,7 @@ int get_inliers(bool *inliers, const cv::Vec4f &model, const cv::Mat &pts, float
     int num_inliers = 0;
 
     std::fill(inliers, inliers + pts_size, false);
-    // 根据统计预估前 2/3 的点计算是必须的，无法剪枝
+    // According to statistical estimation, the calculation of the first 2/3 of the points is necessary and cannot be pruned
     int cut = pts_size * 2 / 3;
     for (int p = 0; p < cut; ++p) {
         int pp = 3 * p;
@@ -483,23 +481,22 @@ int get_inliers(bool *inliers, const cv::Vec4f &model, const cv::Mat &pts, float
             inliers[p] = true;
             ++num_inliers;
         }
-        // 如果未计算的点全都是内点，该模型都无法比最好的模型好，那么终止计算
+        // If the uncalculated points are all interior points and the model cannot be better than the best model, then terminate the calculation
         if (num_inliers + pts_size - p < best_inls) break;
     }
     return num_inliers;
 }
 
-
 /**
- * 获得一个平面
+ * Obtain a plane
  *
- * @param best_model 最好的平面模型（输出）
- * @param inliers 标记是否为平面模型的内点 （输出）
+ * @param best_model  The best plane model (output)
+ * @param inliers  Mark whether it is the inner point of the plane model (output)
  *
- * @param pts 点云
- * @param thr 阈值
- * @param max_iterations 最大迭代次数
- * @return 内点数量
+ * @param pts  Point cloud
+ * @param thr  Threshold
+ * @param max_iterations  Maximum number of iterations
+ * @return number of points
  */
 int
 get_plane(cv::Vec4f &best_model, bool *inliers, const cv::Mat &pts, float thr,
@@ -518,7 +515,7 @@ get_plane(cv::Vec4f &best_model, bool *inliers, const cv::Mat &pts, float thr,
     int best_inls = 0, num_inliers = 0;
 
     for (int iter = 0; iter < max_iterations; ++iter) {
-        // 从点云中随机选取一些点 拟合平面
+        // Randomly select some points from the point cloud to fit the plane
         for (int i = 0; i < min_sample_size; ++i) min_sample[i] = rng.uniform(0, pts_size);
 
         if (!total_least_squares_plane_estimate(model, pts, min_sample, min_sample_size)) continue;
@@ -531,15 +528,15 @@ get_plane(cv::Vec4f &best_model, bool *inliers, const cv::Mat &pts, float thr,
 
         if (num_inliers > best_inls) {
 
-            // 保存至今为止最好的模型
+            // The best model preserved so far
             best_model = model;
             best_inls = num_inliers;
 
-            // 进行局部优化 Local Optimization
+            // Local Optimization
             for (int lo_iter = 0; lo_iter < max_lo_iters; ++lo_iter) {
                 cv::randShuffle(random_pool);
 
-                // 从内点中随机选取一些点 拟合平面
+                // Randomly select some points from the interior points to fit the plane
                 int sample_cnt = 0;
                 for (int p : random_pool) {
                     if (inliers[p]) {
@@ -578,17 +575,17 @@ get_plane(cv::Vec4f &best_model, bool *inliers, const cv::Mat &pts, float thr,
 
     delete[] min_sample;
     delete[] inlier_sample;
-    // 更新 best_model 的内点信息 inliers
+    // Update the inliers of best_model
     if (best_inls != 0 && best_inls >= num_inliers) best_inls = get_inliers(inliers, best_model, pts, thr);
     return best_inls;
 }
 
 /**
- * 检查两个平面是否为同一个平面
+ * Check whether the two planes are the same plane
  *
- * @param p1 平面1
- * @param p2 平面2
- * @return  两个平面很接近则返回 true，否则 false
+ * @param p1  Plane 1
+ * @param p2  Plane 2
+ * @return if the two planes are very close, return true, otherwise false
  */
 bool check_same_plane(cv::Vec4f &p1, cv::Vec4f &p2, double thr) {
     double hom1 = sqrt(p1[0] * p1[0] + p1[1] * p1[1] + p1[2] * p1[2] + p1[3] * p1[3]);

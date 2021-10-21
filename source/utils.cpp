@@ -1,10 +1,10 @@
 #include "utils.h"
 
 /**
- * 获得平面方程字符串 ax + by + cz + d = 0
+ * Get the plane equation string ax + by + cz + d = 0
  *
  * @param model [a, b, c, d]
- * @return  平面方程字符串
+ * @return  Plane equation string
  */
 std::string get_plane_expression_str(cv::Vec4f model) {
     double hom1 = sqrt(model[0] * model[0] + model[1] * model[1] + model[2] * model[2] + model[3] * model[3]);
@@ -16,11 +16,11 @@ std::string get_plane_expression_str(cv::Vec4f model) {
 }
 
 /**
- * 保存点云 label
+ * Save point cloud label
  *
- * @param file_path  保存路径
- * @param labels  存放 label 的Mat
- * @param sync_io  IO同步
+ * @param file_path  Save path
+ * @param labels  Mat for storing label
+ * @param sync_io  IO synchronization
  * @return  true or false
  */
 bool save_points_label(const std::string &file_path, cv::InputArray &labels, bool sync_io) {
@@ -53,11 +53,11 @@ bool save_points_label(const std::string &file_path, cv::InputArray &labels, boo
 }
 
 /**
- * 保存点云到文件
+ * Save point cloud label
  *
- * @param file_path  文件输出路径
- * @param pts   点云
- * @param sync_io  IO同步
+ * @param file_path  Save path
+ * @param pts   Point cloud
+ * @param sync_io  IO synchronization
  * @return  true or false
  */
 bool save_point_cloud_ply(const std::string &file_path, cv::InputArray &pts, bool sync_io) {
@@ -101,11 +101,11 @@ bool save_point_cloud_ply(const std::string &file_path, cv::InputArray &pts, boo
 }
 
 /**
- *  读取点云数据
+ *  Get point cloud data
  *
- * @param output  点云 (输出)
- * @param file_path  点云数据文件路径
- * @param sync_io  IO同步
+ * @param output  Point cloud (output)
+ * @param file_path  Save path
+ * @param sync_io  IO synchronization
  * @return  true or false
  */
 bool read_point_cloud_ply_to_mat(cv::Mat &output, const std::string &file_path, bool sync_io) {
@@ -142,15 +142,14 @@ bool read_point_cloud_ply_to_mat(cv::Mat &output, const std::string &file_path, 
     return true;
 }
 
-
 /**
- * 用于生成点云平面的模型
+ * Model used to generate point cloud plane
 
- * @param size  表示空间立方体的范围，即随机产生平面的正负范围
- * @param point_num  表示生成点的个数
- * @param noise_num  表示额外产生的噪点数目
- * @param models  表示所有平面方程的数组，传入参数之前，需通过models.push(Vec4f(a,b,c,d))的方式添加形如ax+by+cz+d=0的模型方程，数量无需过多
- * @param point_cloud 表示生成的点云
+ * @param size  Represents the range of the space cube, that is, the positive and negative range of the randomly generated plane
+ * @param point_num  Indicates the number of generated points
+ * @param noise_num  Indicates the number of additional noise points
+ * @param models  Represents an array of all plane equations. Before passing in the parameters, you need to add a model equation of the form ax+by+cz+d=0 through models.push(Vec4f(a,b,c,d)) , The quantity does not need to be excessive
+ * @param point_cloud  Means the generated point cloud
  */
 void
 point_cloud_generator(float size, int point_num, int noise_num, std::vector<cv::Vec4f> models, cv::Mat &point_cloud) {

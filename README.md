@@ -1,10 +1,12 @@
 # Plane detection algorithm implementation from 3D point cloud   
 
+[[EN](README.md)] | [[简体中文](README_CN.md)]
+
 ### Introduction
 
 Team Name: No Plane Cannot Be Detected
 
-Team Members:  [Wanli Zhong](https://github.com/zoom1111), [Yechun Ruan](https://github.com/ryyyc), [Changzhen Zhang](https://github.com/changzhenzhang)
+Team Members:  [Yechun Ruan](https://github.com/ryyyc), [Wanli Zhong](https://github.com/zoom1111), [Changzhen Zhang](https://github.com/changzhenzhang)
 
 Mentor: [Shiqi Yu](https://github.com/ShiqiYu)
 
@@ -20,132 +22,133 @@ This project relies on [OpenCV](https://github.com/opencv/opencv) using C++ 11 a
 
 Our team plans to implement the algorithm of **plane detection from 3D point cloud**, and deal with certain noise and isolated points.
 
-点云数据是指在一个三维坐标系统中的一组向量的集合，以点的形式记录，每个点的信息包含三维坐标，有些可能含有颜色信息或反射强度信息。对于实现点云空间中识别多个平面的算法来说，我们仅需使用点云的三维坐标信息即可。我们认为，在OpenCV中使用行数为 N （数据点的总数），列数为 3 （三维坐标）的矩阵 [**cv::Mat**](https://docs.opencv.org/master/d3/d63/classcv_1_1Mat.html) 作为储存点云的数据结构，在多数据的矩阵运算上有着较大的速度优势，且点云数据在内存中是连续存储的，操作指针较为方便。	
+Point cloud data refers to a set of vectors in a three-dimensional coordinate system, recorded in the form of points. The information of each point includes three-dimensional coordinates, and some may contain color information or reflection intensity information. For the algorithm of recognizing multiple planes in point cloud space, we only need to use the three-dimensional coordinate information of point cloud. We believe that a matrix [**cv::Mat**](https://docs.opencv.org/master/d3/d63/classcv_1_1Mat.html)  with N rows (total number of data points) and 3 columns (three-dimensional coordinates) is used in OpenCV. As a data structure for storing point cloud, it has great speed advantage in matrix operation, and point cloud data is continuously stored in memory. It is convenient to operate the pointer.
 
-在经过多方面考量后，我们团队决定主要采用 RANSAC算法 实现点云空间中的多平面检测。为了解决RANSAC算法在大量点云数据中计算量高的问题，我们将对点云原始数据进行采样，降低用于计算距离的点的数据量，同时记录采样点和原始点之间的关系，尽可能地保留点云的空间特征。为了解决RANSAC算法无法同时检测多平面的问题，我们对已经识别出的平面进行标记，并多次应用RANSAC算法以达到要求。当找到一个平面时，标记这个平面的内点(到平面的距离小于给定的阈值的点)，找下一个平面时仅在未被标记的点中继续计算，当到达截止条件时（识别结果达到指定的平面个数或最后一次的平面结果的内点个数小于设定的值），算法终止。除此之外，我们也采用了多种的算法对RANSAC进行优化。
+After many considerations, our team decided to mainly use RANSAC algorithm to realize multi plane detection in point cloud space. In order to solve the problem of high computation of RANSAC algorithm in a large number of point cloud data, we will sample the original data of point cloud, reduce the amount of data of points used to calculate distance, record the relationship between sampling points and original points, and preserve the spatial characteristics of point cloud as much as possible. In order to solve the problem that RANSAC algorithm can not detect multiple planes at the same time, we mark the identified planes and apply RANSAC algorithm many times to meet the requirements. When a plane is found, mark the inner point of the plane (the point whose distance to the plane is less than the given threshold). When finding the next plane, the calculation continues only in the unmarked points. When the cut-off condition is reached (the identification result reaches the specified number of planes or the number of inner points of the last plane result is less than the set value), the algorithm terminates. In addition, we also use a variety of algorithms to optimize RANSAC.	
 
-##### RANSAC算法
+##### RANSAC Algorithm
 
-RANSAC的基本思想是通过从点云中随机选取3个点来选择多个平面模型，然后计算每个平面在阈值内的内点数量。最后，内点数最多点的平面就是当前点云中的最佳平面。
+The basic idea of RANSAC is to select multiple plane models by randomly selecting three points from the point cloud, and then calculate the number of interior points of each plane within the threshold. Finally, the plane with the most points is the best plane in the current point cloud.
 
-##### 体素滤波降采样
+##### Voxel Filter Sampling
 
-体素滤波降采样的基本原理是：将点云空间切割成大小相等的长方体或立方体，对于每一个立方体，选择距离该长方体内所有点的重心最近的点，代表整个长方体的点。
+The basic principle of voxel filter sampling is: split the point cloud space into cuboids or cubes of equal size. For each cube, select the point closest to the center of gravity of all points in the cuboid to represent the points of the whole cuboid.
 
 ##### Lo-RANSAC
 
-Lo-RANSAC有多种优化RANSAC的方案。在迭代计算找平面过程中，如果出现当前最优平面模型，则可以考虑进行 Lo-RANSAC。一种方法是从当前最优平面模型的内点中随机选取一些点来再次拟合平面模型并计算内点，迭代一定次数，并选择最佳的结果作为改进结果。
+Lo-RANSAC has many schemes to optimize RANSAC. In the process of iterative plane detecting, if the current optimal plane model appears, Lo-RANSAC can be considered. One method is to randomly select some points from the interior points of the current optimal plane model to fit the plane model again, calculate the interior points, iterate for a certain number of times, and select the best result as the improvement result.
 
-##### 剪枝
+##### Pruning
 
-剪枝则是在计算平面模型的内点时，及时结束一些不必要的计算，属于细节上的优化。
+Pruning is to finish some unnecessary calculations in time when calculating the interior points of the plane model, which belongs to the optimization of details.
 
-##### 总体最小二乘法
+##### Total Least Square
 
-在RANSAC中的平面模型拟合部分中，普通的最小二乘法(Ordinary Least Square)拟合平面时，可能会出现一些特殊的平面无法被拟合出来的情况，如平面 $x = 0$。而 总体最小二乘法(Total Least Square, TLS) 的计算方式可以解决这个问题。除此之外，也有其他的平面拟合方式，我们也准备通过测试来选择最终所采用的方法。
+In the plane model fitting part of RANSAC, when the Ordinary Least Square method is used to fit the plane, some special planes may not be fitted, such as plane $x = 0$. The calculation method of Total Least Square (TLS) can solve this problem. In addition, there are other plane fitting methods, and we are also prepared to select the final method through testing.
 
-##### 迭代提前终止
+##### Early Termination of Iteration
 
-我们使用概率论与统计学的理论，可以计算出迭代提前终止的条件，其原理是：
+Using the theories of probability and statistics, we can calculate the conditions for early termination of iteration. The principle is as follows:
 
-- 在一个点云空间 PC 中，点的数量是 $N$，最大的平面 PlaneMax 的内点的数量为 $M$，随机取三个点，这三个点都属于该平面 PlaneMax 的概率为$(\frac{M}{N})^3$
-- 每次从点云空间中取三个点构造一个平面，连续构造$K$个平面都没有取到 PlaneMax 的概率是$(1 - (\frac{M}{N}) ^ 3) ^ K$，构造$K$个平面至少有一个平面是 PlaneMax 的概率是 $1 - (1 - (\frac{M}{N}) ^ 3) ^ K$
-- 如果我们希望在概率不低于$P$的情况下正确地找到最大平面，那么我们就可以求解方程 $1 - (1 - (\frac{M}{N}) ^ 3) ^ K>P$,并得到结果$K > \frac{log(1-P)}{log (1 - (\frac{M}{N}) ^ 3)}$，所以我们只需要使迭代次数不小于$\frac{log(1-P)}{log (1 - (\frac{M}{N}) ^ 3)}$
-- 还可以注意到的是，即使一开始不知道 $M$ 的大小，但是，在迭代过程中保存的到目前为止找到的最大平面的内点数量 $A$ 不会大于 $M$，所以算法所以只需要让迭代的次数不比 $\frac{log(1-P)}{log (1 - (\frac{A}{N}) ^ 3)}$ 小即可
+* In a point cloud space "PC", the number of points is $N$, the number of interior points of the largest plane "PlaneMax" is $M$, and three points are randomly selected. The probability that all three points belong to the plane "PlaneMax" is $(\frac{M}{N})^3$.
+* Each time three points are taken from the point cloud space to construct a plane, the probability that not "PlaneMax" is obtained for the continuous construction of $K$ planes is $(1 - (\frac{M}{N}) ^ 3) ^ K$, and the probability that at least one plane of $K$ planes is "PlaneMax" is $1 - (1 - (\frac{M}{N}) ^ 3) ^ K$.
+* If we want to find the maximum plane correctly when the probability is not less than $P$, we can solve the equation $1 - (1 - (\frac{M}{N}) ^ 3) ^ K>P$ and get the result $K > \frac{log(1-P)}{log (1 - (\frac{M}{N}) ^ 3)}$ . So we only need to make the number of iterations not less than $\frac{log(1-P)}{log (1 - (\frac{M}{N}) ^ 3)}$.
 
-##### 向量约束
+- It can also be noted that even if the size of $M$ is not known at the beginning, the number of interior points of the maximum plane found so far saved in the iteration process $A$ will not be greater than $M $, so the algorithm only needs to make the number of iterations no less than $\frac{log(1-P)}{log (1 - (\frac{A}{N}) ^ 3)}$.
 
-在实际测试中，我们发现降采样会使得点云密度变得均匀，从而导致平面识别的顺序发生改变，虽然在多平面识别中并不影响，但是考虑实际应用中如：汽车识别路面，无人机识别墙面等应用中，需要仅对特定的平面识别。我们采用了向量约束的方式，仅识别法向量与该向量夹角不大的平面，即可检测特定方向的平面。
+##### Normal Vector Constraint
+
+In the actual test, we found that sampling will make the point cloud density uniform, resulting in the change of the order of plane recognition. Although it does not affect in multi plane recognition, it is considered that in practical applications, such as vehicle identification pavement, UAV identification wall and so on, only specific plane recognition is required. We use the vector constraint method to identify only the plane with small angle between the normal vector and the vector, and then we can detect the plane in a specific direction.
 
 <br><br>
 
-### 对实现题目的方案设计
+### Scheme Design
 
 <img src="./images/framwork-EN.png" style="transform: scale(0.8);" />
 
 <br><br>
 
-### 软件环境
+### Software Environment
 
 * OpenCV 4.5.1
 * g++ 5.4
-* Python 3.6 + Open3D Python 版 (可选，用于可视化)
+* Python 3.6 + Open3D Python version (optional，used for visualization)
 
-安装教程: [OpenCV](https://docs.opencv.org/4.5.1/df/d65/tutorial_table_of_content_introduction.html), [Open3D](http://www.open3d.org/docs/latest/introduction.html)
+Installation Tutorial: [OpenCV](https://docs.opencv.org/4.5.1/df/d65/tutorial_table_of_content_introduction.html), [Open3D](http://www.open3d.org/docs/latest/introduction.html)
 
 <br><br>
 
-### 目录结构
+### Directory Structure
 
 ```
 .
-├── data (数据的输入和输出目录)
+├── data (Data input and output directory)
 │   ├── Cassette_GT_.ply-sampling-0.2.ply
 │   └── check.ply
 │   └── check_label.txt
-├── images (文档图片目录)
-├── include (头文件目录)
+├── images (Document picture directory)
+├── include (Header file directory)
 │   ├── ransac.h
 │   └── utils.h
-├── source (源文件目录)
+├── source (Source file directory)
 │   ├── main.cpp
 │   ├── ransac.cpp
 │   └── utils.cpp
-└── viz  (可视化样例代码目录)
+└── viz  (Visual sample code directory)
     └── Pointcloud-Visualization-With-Open3D.py
 ```
 
 <br><br>
 
-### 数据集
+### Dataset
 
-部分数据集来源于: [IQmulus & TerraMobilita Contest](http://data.ign.fr/benchmarks/UrbanAnalysis)，下载链接: [Zones 0-4](http://data.ign.fr/benchmarks/UrbanAnalysis/download/Z0-4.zip), [Cassette_idclass.zip](http://data.ign.fr/benchmarks/UrbanAnalysis/download/Cassette_idclass.zip).
+Some datasets are from: [IQmulus & TerraMobilita Contest](http://data.ign.fr/benchmarks/UrbanAnalysis). Download links: [Zones 0-4](http://data.ign.fr/benchmarks/UrbanAnalysis/download/Z0-4.zip), [Cassette_idclass.zip](http://data.ign.fr/benchmarks/UrbanAnalysis/download/Cassette_idclass.zip).
 
-另一部分数据集通过标准平面方程生成并添加噪声点
+Another part of the dataset is generated by standard plane equation with noise points.
 
 <br><br>
 
-### 使用说明
+### Instructions
 
-3D点云平面检测的入口为
+The interface of 3D point cloud plane detection is:
 
    ```c++
    /**
-    * 
-    * @param labels  点属于某个平面的标签, n × 1 矩阵, n 等于输入点云的大小 (输出)
-    * @param planes  保存平面方程的vector, 方程表示为 ax + by + cz + d = 0 (输出)
-    * @param points3d  输入的点云数据
-    * @param thr  阈值
-    * @param max_iterations 最大迭代次数
-    * @param desired_num_planes  目标平面的数量
-    * @param grid_size  降采样方格大小, 如果 小于等于 0，代表不进行降采样
-    * @param normal 法向量约束，为 nullptr 代表不使用约束， 否则检测的平面法向量满足该约束
+    *
+    * @param labels  The label that the point belongs to a certain plane, n × 1 matrix, n is equal to the size of the input point cloud (output)
+    * @param planes  Holds the vector of plane equations, the equation is expressed as ax + by + cz + d = 0 (output)
+    * @param points3d  Input point cloud data
+    * @param thr  Threshold
+    * @param max_iterations  Maximum number of iterations
+    * @param desired_num_planes  Number of target planes
+    * @param grid_size  Downsampling grid size, if less than or equal to 0, it means no downsampling
+    * @param normal  Normal vector constraint, nullptr means no constraint is used, otherwise the detected plane normal vector satisfies the constraint
     */
    void get_planes(cv::Mat &labels, std::vector<cv::Vec4f> &planes, cv::InputArray &points3d,
                    float thr, int max_iterations, int desired_num_planes, float grid_size, cv::Vec3f *normal);
    ```
 
-详细解释:
+Explain in Detail:
 
-1.  **labels**: 参数类型为 `cv::Mat` ，n × 1 矩阵，单通道，int类型数据，用于保存点的标签，0 代表不属于任何平面， 正整数 k 代表属于编号 k 的平面
-2.  **planes**: 参数类型为 `std::vector<cv::Vec4f>` ，用于保存平面的方程，[a, b, c, d] 四元组 对应  ax + by + cz + d = 0
-3.  **points3d**: 参数类型为  `cv::Mat`，n × 3 矩阵，单通道，float类型数据，用于存储点云数据
-4.  **thr**: 参数类型为 `float`，如果点到平面的距离小于该值，则认为这个点属于这个平面的内点
-5.  **max_iterations**:  参数类型为 `int`，迭代次数达到该值则停止迭代，输出内点最多的平面方程
-6.  **desired_num_planes**:  参数类型为 `int`，该值表示希望从点云中找出的平面的数量
-7.  **grid_size**:  参数类型为 `float`，体素滤波降采样网格边长大小，如果小于等于0，代表不进行降采样处理
-8.  **normal**: 参数类型为 `cv::Vec3f*`，三维空间中平面的法向量，为 nullptr 代表不使用约束， 否则检测的平面法向量满足该约束
+1. **labels**: The parameter type is `cv::Mat`, n × 1 matrix, single channel, int type data, used to save the label of the point, 0 means not belonging to any plane, positive integer k means belonging to the number k plane
+2. **planes**: The parameter type is `std::vector<cv::Vec4f>`, which is used to save the equations of the plane. [a, b, c, d] quaternion corresponds to ax + by + cz + d = 0
+3. **points3d**: The parameter type is `cv::Mat`, n × 3 matrix, single channel, float type data, used to store point cloud data
+4. **thr**: The parameter type is `float`, if the distance from the point to the plane is less than this value, the point is considered to belong to the inner point of the plane
+5. **max_iterations**: The parameter type is `int`, the iteration will stop when the number of iterations reaches this value, and the plane equation with the most interior points will be output
+6. **desired_num_planes**: The parameter type is `int`, this value represents the number of planes that you want to find from the point cloud
+7. **grid_size**: The parameter type is `float`, the side length of the voxel filtering down-sampling grid, if it is less than or equal to 0, it means no down-sampling processing
+8. **normal**: The parameter type is `cv::Vec3f*`, the normal vector of the plane in the three-dimensional space, nullptr means no constraint is used, otherwise the detected plane normal vector satisfies the constraint
 
 
 <br><br>
 
-### 运行DEMO
+### Run Demo
 
-1. 克隆仓库
+1. Clone
 ```shell
 git clone https://gitee.com/openeuler2020/team-1902378398.git
 ```
-2. 编译程序
+2. Compiler
 ```shell
 cd team-1902378398
 
@@ -153,9 +156,9 @@ cmake .
 
 make
 ```
-Note: 上面为 Linux 操作系统的编译步骤，如果是 windows 操作系统，请先修改 [CMakeLists.txt](./CMakeLists.txt) 文件 第九行，将 OpenCV 目录设置为对应的安装目录。
+Note: The above are the compilation steps for Linux operating system. If it is windows operating system, please modify the ninth line of the [CMakeLists.txt](./CMakeLists.txt) file and set the OpenCV directory to the corresponding installation directory.
 
-3. 运行程序
+3. Run
 
 * DEMO 1
 
@@ -168,16 +171,15 @@ Note: 上面为 Linux 操作系统的编译步骤，如果是 windows 操作系�
 ./Point-Cloud-Plane-Detection 3 0.5 0.22 1000 ./data/Cassette_GT_.ply-sampling-0.2.ply 0 0 0
 ```
 
-传入参数分别是 目标平面数量、阈值、网格大小、最大迭代次数、点云文件路径、法向量约束（0、0、0 代表不使用法向量约束）
+The incoming parameters are the number of target planes, the threshold, the grid size, the maximum number of iterations, the path of the point cloud file, and the normal vector constraint (0, 0, 0 means not using the normal vector constraint).
 
 <br><br>
 
+### Point Cloud Visualization
 
-### 点云可视化
+Point cloud visualization can be achieved through Open3D (APP version, C++ version, Python version), PCL (C++ version, Python version), etc.
 
-点云可视化可以通过 Open3D （APP版、C++版、Python版）、PCL（C++版、Python版）等方式实现
-
-Python版 Open3D 可视化点云的样例代码在 [./viz/Pointcloud-Visualization-With-Open3D.py](./viz/Pointcloud-Visualization-With-Open3D.py)
+The Python version of the Open3D visualized point cloud sample code is in  [./viz/Pointcloud-Visualization-With-Open3D.py](./viz/Pointcloud-Visualization-With-Open3D.py)
 
 - DEMO
 
@@ -187,18 +189,18 @@ python ./Pointcloud-Visualization-With-Open3D.py -cloud "../data/check.ply" -lab
 
 <br><br>
 
-### 测试
+### Test
 
-##### 基于 openeuler 的测试
+##### Test based on OpenEuler
 
-测试平台配置:
+Test platform configuration:
 
-- 架构: 鲲鹏920
-- 操作系统: openEuler操作系统 release 2.0
-- CPU: 8核8线程
-- 内存大小: 8 GB
+- Architecture: Kunpeng 920Test
+- Operating system: OpenEuler operating system release 2.0
+- CPU: 8 cores 8 threads
+- Memory Size: 8 GB
 
-测试结果: 
+Test Results:
 
 | Dataset  | Point Cloud Size | Output Plane                                         | inliers num | Time Cost (s) |
 | -------- | ---------------- | ---------------------------------------------------- | ----------- | ------------- |
@@ -211,21 +213,21 @@ python ./Pointcloud-Visualization-With-Open3D.py -cloud "../data/check.ply" -lab
 
 <br>
 
-##### 基于 Ubuntu 的测试
+##### Ubuntu Based Test
 
-见 **[测试报告](./TEST_REPORT.pdf)(点击可下载测试报告详细内容)**，包含本程序测试及 PCL([Point Cloud Library](https://pointclouds.org/)) 的RANSAC测试
+See **[Test Report](./TEST_REPORT.pdf) (click to download the details of the test report)**, including the test of this program and PCL([Point Cloud Library](https://pointclouds.org/)) RANSAC test
 
-测试报告中的图片可以在 [./images/rep_pic](./images/rep_pic) 中找到，输出数据可以在分支 `opencv+open3d+pcl` 的 ` team-1902378398/data/labels` 路径下
+The pictures in the test report can be found in [./images/rep_pic](./images/rep_pic).
 
 <br>
 
-单平面识别时间对比测试结果：
+Single plane recognition time comparison test results:
 
 ![](images/test_pic/time_cost.png)
 
 <br>
 
-部分测试结果图如下：
+Some test results are as follows:
 
 - Z0
 
@@ -243,7 +245,7 @@ python ./Pointcloud-Visualization-With-Open3D.py -cloud "../data/check.ply" -lab
 
 
 
-真实场景下的测试:
+Tests in real scenarios:
 
 ![](./images/real_lidar/real_1.jpg)
 
@@ -251,25 +253,25 @@ python ./Pointcloud-Visualization-With-Open3D.py -cloud "../data/check.ply" -lab
 
 ![](./images/real_lidar/2.png)
 
-##### 测试结论
+##### Test conclusion
 
-我们队伍的优化RANSAC算法有以下优点：
+Our team’s optimized RANSAC algorithm has the following advantages:
 
-- 经过与PCL对比，以及与随机生成的标准平面方程测试，我们得到的平面方程几乎完全一致，验证了检测平面的准确性
-- 在与PCL的速度对比中，总体上有较好的速度
-- 能够一次识别多个平面
-- 可以自由选择是否使用降采样预处理点云
-- 可以识别特定方向的平面
+- After comparing with PCL and testing with randomly generated standard plane equations, the plane equations we got are almost identical, verifying the accuracy of the detection plane
+- In the speed comparison with PCL, the overall speed is better
+- Able to identify multiple planes at once
+- You can freely choose whether to use sampling to preprocess the point cloud
+- Can identify planes in specific directions
 
-对于体素滤波降采样，它加快了点云中检测平面的速度，在识别多个平面时提速更有效和直观，但是它还存在以下问题：
+For voxel filtering and sampling, it speeds up the detection of planes in the point cloud, which is more effective and intuitive when identifying multiple planes, but it also has the following problems:
 
-- 点云比较小并且只识别少量平面时，降采样耗时的比重很大削弱了其效果
+- When the point cloud is relatively small and only a few planes are recognized, the time-consuming proportion of sampling is very large, which weakens its effect
 
 
 <br><br>
 
 
-### 参考文献
+### Reference
 
 - R. Adams and L. Bischof. Seeded region growing. IEEE Transactions on Pattern Analysis and Machine Intelligence, 16(6):641-647, 19 94.
 - Dorit Borrmann, Jan Elseberg, Kai Lingemann, and Andreas Nuchter. The 3d hough transform for plane detection in point clouds: A review and a new accumulator design. 3D Research, 0202, 06 2011.
@@ -278,13 +280,13 @@ python ./Pointcloud-Visualization-With-Open3D.py -cloud "../data/check.ply" -lab
 
 <br><br>
 
-### 参与贡献
+### Contribution
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+1.  Fork this warehouse
+2. Create new Feat_xxx branch
+3. Submit the code
+4. New Pull Request
 
 
-### 南科大致仁活动室雷达实时演示视频
-[在线播放链接](http://static.keykeeper.top/lidar-demo.mp4)
+### Radar Real-time Demonstration Video of ZhiRen Activity Room in SUSTech
+[Online Play](http://static.keykeeper.top/lidar-demo.mp4)
