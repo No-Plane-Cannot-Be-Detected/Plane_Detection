@@ -45,7 +45,3 @@ In the actual test, we found that sampling will make the point cloud density uni
 ### Scheme Design
 
 <img src="./images/framwork-EN.png" style="transform: scale(0.8);" />
-
-
-### Radar Real-time Demonstration Video of ZhiRen Activity Room in SUSTech
-[Online Play](http://static.keykeeper.top/lidar-demo.mp4)
